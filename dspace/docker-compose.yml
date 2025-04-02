@@ -1,7 +1,7 @@
-version: '3.7'
+version: '3.8'
 services:
   dspace:
-    image: dspace/dspace:latest
+    image: dspace/dspace:dspace-8.1
     container_name: dspace
     depends_on:
       - dspacedb
@@ -25,8 +25,6 @@ services:
     volumes:
       - dspace-assets:/dspace/assetstore
       - ./config:/dspace/config
-      # Optional: Custom modules/webapps
-      #- ./modules:/dspace/webapps
       # Log files should be externalized for persistence and analysis
       - dspace-logs:/dspace/log
     restart: unless-stopped
@@ -48,7 +46,7 @@ services:
           memory: 1G
     
   dspacedb:
-    image: dspace/dspace-postgres-pgcrypto:latest
+    image: dspace/dspace-postgres-pgcrypto:dspace-8.1
     container_name: dspacedb
     networks:
       - dspacenet
@@ -101,7 +99,7 @@ services:
           memory: 512M
           
   dspacesolr:
-    image: dspace/dspace-solr:latest
+    image: dspace/dspace-solr:dspace-8.1
     container_name: dspacesolr
     networks:
       - dspacenet
@@ -126,7 +124,7 @@ services:
           cpus: '0.5'
           memory: 1G
 
-  # Optional: Add a web server/proxy in front of DSpace
+  # Web server/proxy in front of DSpace
   nginx:
     image: nginx:stable-alpine
     container_name: dspace-nginx
@@ -155,20 +153,10 @@ services:
 networks:
   dspacenet:
     driver: bridge
-    # Optional: Configure network with fixed subnet if needed for firewall rules
-    # ipam:
-    #   driver: default
-    #   config:
-    #     - subnet: 172.28.0.0/16
 
 volumes:
   dspace-assets:
     driver: local
-    # For production, consider using a volume driver that supports backups
-    # driver_opts:
-    #   type: nfs
-    #   o: addr=192.168.1.1,rw
-    #   device: ":/path/to/nfs/share"
   pgdata:
     driver: local
   solr-data:
