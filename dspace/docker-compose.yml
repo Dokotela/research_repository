@@ -1,0 +1,179 @@
+version: '3.7'
+services:
+  dspace:
+    image: dspace/dspace:latest
+    container_name: dspace
+    depends_on:
+      - dspacedb
+      - dspacesolr
+    networks:
+      - dspacenet
+    environment:
+      # Database connection settings
+      - DSPACE_DB_URL=jdbc:postgresql://dspacedb:5432/dspace
+      - DSPACE_DB_USER=dspace
+      - DSPACE_DB_PASSWORD=${POSTGRES_PASSWORD}
+      # Email configuration
+      - DSPACE_MAIL_SERVER=${MAIL_SERVER:-localhost}
+      - DSPACE_MAIL_SERVER_PORT=${MAIL_PORT:-25}
+      - DSPACE_MAIL_FROM_ADDRESS=${MAIL_FROM:-dspace@example.com}
+      # Admin account
+      - DSPACE_ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - DSPACE_ADMIN_PASS=${ADMIN_PASSWORD:-admin}
+      - DSPACE_ADMIN_FIRSTNAME=${ADMIN_FIRSTNAME:-DSpace}
+      - DSPACE_ADMIN_LASTNAME=${ADMIN_LASTNAME:-Admin}
+    volumes:
+      - dspace-assets:/dspace/assetstore
+      - ./config:/dspace/config
+      # Optional: Custom modules/webapps
+      #- ./modules:/dspace/webapps
+      # Log files should be externalized for persistence and analysis
+      - dspace-logs:/dspace/log
+    restart: unless-stopped
+    # Healthcheck to ensure application is running properly
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/server/api/core/metadatafields"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # Apply resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    
+  dspacedb:
+    image: dspace/dspace-postgres-pgcrypto:latest
+    container_name: dspacedb
+    networks:
+      - dspacenet
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-dspace}
+      # Optional: customize the following if needed
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Backup directory for database dumps
+      - ./db-backups:/db-backups
+    # Apply production security settings
+    command: 
+      - "postgres"
+      - "-c" 
+      - "shared_buffers=256MB"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "max_wal_size=1GB"
+      - "-c"
+      - "log_statement=none"
+      - "-c"
+      - "log_duration=off"
+      - "-c"
+      - "log_lock_waits=on"
+      - "-c"
+      - "log_min_error_statement=error"
+    restart: unless-stopped
+    # Healthcheck for database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dspace"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Apply resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+          
+  dspacesolr:
+    image: dspace/dspace-solr:latest
+    container_name: dspacesolr
+    networks:
+      - dspacenet
+    volumes:
+      - solr-data:/var/solr/data
+    restart: unless-stopped
+    environment:
+      - SOLR_OPTS=-Dsolr.jetty.https.port=8983 -Dsolr.jetty.https.clientAuth=want -Dsolr.jetty.host=0.0.0.0 -Xmx1g -Xms1g
+    # Healthcheck for Solr
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8983/solr/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Apply resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1.5G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # Optional: Add a web server/proxy in front of DSpace
+  nginx:
+    image: nginx:stable-alpine
+    container_name: dspace-nginx
+    depends_on:
+      - dspace
+    networks:
+      - dspacenet
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - nginx-logs:/var/log/nginx
+    restart: unless-stopped
+    # Apply resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+networks:
+  dspacenet:
+    driver: bridge
+    # Optional: Configure network with fixed subnet if needed for firewall rules
+    # ipam:
+    #   driver: default
+    #   config:
+    #     - subnet: 172.28.0.0/16
+
+volumes:
+  dspace-assets:
+    driver: local
+    # For production, consider using a volume driver that supports backups
+    # driver_opts:
+    #   type: nfs
+    #   o: addr=192.168.1.1,rw
+    #   device: ":/path/to/nfs/share"
+  pgdata:
+    driver: local
+  solr-data:
+    driver: local
+  dspace-logs:
+    driver: local
+  nginx-logs:
+    driver: local
