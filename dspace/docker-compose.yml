@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   dspace:
     image: dspace/dspace:dspace-8.1
@@ -44,6 +43,17 @@ services:
         reservations:
           cpus: '0.5'
           memory: 1G
+  
+  dspace-ui:
+    image: dspace/dspace-angular:dspace-8.1
+    container_name: dspace-ui
+    networks:
+      - dspacenet
+    ports:
+      - "4000:4000"
+    depends_on:
+      - dspace
+    restart: unless-stopped
     
   dspacedb:
     image: dspace/dspace-postgres-pgcrypto:dspace-8.1
