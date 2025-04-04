@@ -1,13 +1,16 @@
 services:
   dspace:
-    image: dspace/dspace:dspace-8.1
+    image: dspace/dspace:dspace-8_x
     container_name: dspace
     depends_on:
       - dspacedb
       - dspacesolr
     networks:
       - dspacenet
+    # THIS IS THE KEY CHANGE - explicitly set the command
+    command: java -jar /dspace/webapps/server-boot.jar --dspace.dir=/dspace
     environment:
+      - dspace__P__dir=/dspace
       # Database connection settings
       - DSPACE_DB_URL=jdbc:postgresql://dspacedb:5432/dspace
       - DSPACE_DB_USER=dspace
@@ -23,17 +26,10 @@ services:
       - DSPACE_ADMIN_LASTNAME=${ADMIN_LASTNAME:-Admin}
     volumes:
       - dspace-assets:/dspace/assetstore
-      - ./config:/dspace/config
-      # Log files should be externalized for persistence and analysis
+      - ./config/local.cfg:/dspace/config/local.cfg
+      - ./config/log4j2.xml:/dspace/config/log4j2.xml
       - dspace-logs:/dspace/log
     restart: unless-stopped
-    # Healthcheck to ensure application is running properly
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/server/api/core/metadatafields"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     # Apply resource limits
     deploy:
       resources:
@@ -45,7 +41,7 @@ services:
           memory: 1G
   
   dspace-ui:
-    image: dspace/dspace-angular:dspace-8.1
+    image: dspace/dspace-angular:dspace-8_x
     container_name: dspace-ui
     networks:
       - dspacenet
@@ -56,7 +52,7 @@ services:
     restart: unless-stopped
     
   dspacedb:
-    image: dspace/dspace-postgres-pgcrypto:dspace-8.1
+    image: dspace/dspace-postgres-pgcrypto:dspace-8_x
     container_name: dspacedb
     networks:
       - dspacenet
@@ -109,7 +105,7 @@ services:
           memory: 512M
           
   dspacesolr:
-    image: dspace/dspace-solr:dspace-8.1
+    image: dspace/dspace-solr:dspace-8_x
     container_name: dspacesolr
     networks:
       - dspacenet

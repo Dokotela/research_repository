@@ -339,8 +339,9 @@ initialize_dspace
 
 # Log startup completion
 log "INFO" "DSpace 8.1 initialization completed successfully."
-log "INFO" "Starting Tomcat..."
+log "INFO" "Starting Tomcat with explicit dspace.dir parameter..."
 echo "===================================================================="
 
-# Start Tomcat
-exec "$@"
+# CRITICAL CHANGE: Start DSpace with the explicit dspace.dir parameter
+# This prevents the "URI is not hierarchical" error
+exec java -jar /dspace/webapps/server-boot.jar --dspace.dir=/dspace "$@"
